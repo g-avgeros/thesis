@@ -1,34 +1,51 @@
 import React from 'react';
-import { Drawer, List, ListItem, ListItemIcon, ListItemText, Toolbar } from '@mui/material';
+import { Drawer, List, Toolbar, ListItem, ListItemIcon, ListItemText } from '@mui/material';
 import { CalendarMonth, BusinessCenter, People } from '@mui/icons-material';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const drawerWidth = 240;
+export const drawerWidth = 180;
 
-const Sidebar = () => (
-  <Drawer
-    variant="permanent"
-    sx={{
-      width: drawerWidth,
-      flexShrink: 0,
-      '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box' },
-    }}
-  >
-    <Toolbar />
-    <List>
-      <ListItem button>
-        <ListItemIcon><CalendarMonth /></ListItemIcon>
-        <ListItemText primary="Ημερολόγιο" />
-      </ListItem>
-      <ListItem button>
-        <ListItemIcon><BusinessCenter /></ListItemIcon>
-        <ListItemText primary="Υπηρεσίες" />
-      </ListItem>
-      <ListItem button>
-        <ListItemIcon><People /></ListItemIcon>
-        <ListItemText primary="Πελάτες" />
-      </ListItem>
-    </List>
-  </Drawer>
-);
+const Sidebar = () => {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  const items = [
+    { text: 'Ημερολόγιο', icon: <CalendarMonth />, path: '/calendar' },
+    { text: 'Υπηρεσίες', icon: <BusinessCenter />, path: '/services' },
+    { text: 'Πελάτες', icon: <People />, path: '/clients' },
+  ];
+
+  return (
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': { width: drawerWidth, boxSizing: 'border-box', position: 'fixed', },
+      }}
+    >
+      <Toolbar />
+      <List>
+        {items.map(item => (
+          <ListItem
+            button
+            key={item.text}
+            selected={pathname === item.path}
+            onClick={() => navigate(item.path)}
+            sx={{
+              cursor: 'pointer',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              },
+            }}
+          > 
+            <ListItemIcon>{item.icon}</ListItemIcon>
+            <ListItemText primary={item.text} />
+          </ListItem>
+        ))}
+      </List>
+    </Drawer>
+  );
+};
 
 export default Sidebar;

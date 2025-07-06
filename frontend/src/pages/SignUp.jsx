@@ -33,7 +33,7 @@ const SignUp = () => {
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
     if (data.password !== data.confirm) {
-      return alert("Τα passwords διαφέρουν!");
+      return alert("Οι κωδικοί δεν ταιριάζουν");
     }
     try {
       await register(data);

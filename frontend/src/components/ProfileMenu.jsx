@@ -1,34 +1,38 @@
 import React, { useState } from 'react';
-import { IconButton, Avatar, Menu, MenuItem } from '@mui/material';
+import { IconButton, Menu, MenuItem, Avatar } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 
-const ProfileMenu = () => {
+export default function ProfileMenu() {
   const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
+  const navigate = useNavigate();
 
-  const handleOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    navigate('/login', { replace: true });
   };
 
   return (
     <>
-      <IconButton onClick={handleOpen} size="small" sx={{ ml: 2 }}>
-        <Avatar alt="User" src="/static/images/avatar/1.jpg" />
+      <IconButton onClick={e => setAnchorEl(e.currentTarget)}>
+        <Avatar />
       </IconButton>
       <Menu
         anchorEl={anchorEl}
-        open={open}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
       >
-        <MenuItem onClick={() => { /* TODO: navigate to settings */ handleClose(); }}>Settings</MenuItem>
-        <MenuItem onClick={() => { /* TODO: perform logout */ handleClose(); }}>Logout</MenuItem>
+        <MenuItem
+          onClick={() => {
+            setAnchorEl(null);
+            navigate('/settings');
+          }}
+        >
+          Ρυθμίσεις
+        </MenuItem>
+        <MenuItem onClick={handleLogout}>
+          Αποσύνδεση
+        </MenuItem>
       </Menu>
     </>
   );
-};
-
-export default ProfileMenu;
+}

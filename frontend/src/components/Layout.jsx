@@ -8,7 +8,7 @@ const Layout = ({ children }) => (
     <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
       <Toolbar>
         <Typography variant="h6" sx={{ flexGrow: 1 }} noWrap>
-          My App
+          Agendify
         </Typography>
         <ProfileMenu />
       </Toolbar>
@@ -16,7 +16,7 @@ const Layout = ({ children }) => (
 
     <Sidebar />
 
-    <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+    <Box component="main" sx={{ flexGrow: 1, p: 0 }}>
       <Toolbar />
       {children}
     </Box>

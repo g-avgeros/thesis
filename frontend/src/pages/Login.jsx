@@ -27,10 +27,11 @@ const Login = () => {
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     try {
-      const { token, id } = await login({
+      const res = await login({
         email: credentials.email,
         password: credentials.password,
       });
+      const { token, id } = res.data;
       localStorage.setItem('user_id', id);
       localStorage.setItem('token', token);
       alert('Επιτυχής σύνδεση!');
@@ -104,7 +105,7 @@ const Login = () => {
             <TextField
               fullWidth
               name="password"
-              label="Password"
+              label="Κωδικός"
               type={showPw ? "text" : "password"}
               value={credentials.password}
               onChange={handleChange}
