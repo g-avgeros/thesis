@@ -1,21 +1,19 @@
 from flask import Blueprint, request, jsonify
 from models.models import db, Client, Professional
+from routes.auth import token_required
 
 client_bp = Blueprint('client_bp', __name__)
 
 # ---------- CREATE ----------
 @client_bp.route('/clients', methods=['POST'])
-def create_client():
+@token_required
+def create_client(user):
     data = request.get_json() or {}
 
-    if not all(k in data for k in ('professional_id', 'full_name')):
+    if 'full_name' not in data:
         return jsonify({'error': 'Missing required fields'}), 400
 
-    if not Professional.query.get(data['professional_id']):
-        return jsonify({'error': 'Professional not found'}), 404
-
     c = Client(
-        professional_id=data['professional_id'],
         full_name=data['full_name'],
         email=data.get('email'),
         phone=data.get('phone'),
@@ -28,12 +26,12 @@ def create_client():
 
 # ---------- READ ALL ----------
 @client_bp.route('/clients', methods=['GET'])
-def get_all_clients():
+@token_required
+def get_all_clients(user):
     clients = Client.query.all()
     return jsonify([
         {
             'id': c.id,
-            'professional_id': c.professional_id,
             'full_name': c.full_name,
             'email': c.email,
             'phone': c.phone,
@@ -43,13 +41,13 @@ def get_all_clients():
 
 # ---------- READ ONE ----------
 @client_bp.route('/clients/<int:id>', methods=['GET'])
-def get_client(id):
-    c = Client.query.get(id)
+@token_required
+def get_client(user, id):
+    c = Client.query.filter_by(id=id).first()
     if not c:
         return jsonify({'error': 'Client not found'}), 404
     return jsonify({
         'id': c.id,
-        'professional_id': c.professional_id,
         'full_name': c.full_name,
         'email': c.email,
         'phone': c.phone,
@@ -58,9 +56,10 @@ def get_client(id):
 
 # ---------- UPDATE ----------
 @client_bp.route('/clients/<int:id>', methods=['PUT'])
-def update_client(id):
+@token_required
+def update_client(user, id):
     data = request.get_json() or {}
-    c = Client.query.get(id)
+    c = Client.query.filter_by(id=id).first()
     if not c:
         return jsonify({'error': 'Client not found'}), 404
 
@@ -73,8 +72,9 @@ def update_client(id):
 
 # ---------- DELETE ----------
 @client_bp.route('/clients/<int:id>', methods=['DELETE'])
-def delete_client(id):
-    c = Client.query.get(id)
+@token_required
+def delete_client(user, id):
+    c = Client.query.filter_by(id=id).first()
     if not c:
         return jsonify({'error': 'Client not found'}), 404
 

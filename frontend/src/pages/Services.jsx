@@ -41,7 +41,6 @@ export default function Services() {
 
   const handleSave = () => {
     const payload = {
-      professional_id: localStorage.getItem('user_id'),
       name: current.name,
       duration_minutes: +current.duration_minutes,
       price: +current.price,

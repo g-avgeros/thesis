@@ -1,4 +1,4 @@
-// SignUp.jsx
+// ProfessionalSignUp.jsx
 import React, { useState } from "react";
 import {
   Box,
@@ -10,37 +10,62 @@ import {
   Link,
   Stack,
   Paper,
+  Breadcrumbs,
 } from "@mui/material";
-import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
-import axios from "axios";
+import { Mail, Lock, Eye, EyeOff, Briefcase, ArrowLeft } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
-import { register } from '../services/authService';
+import { registerProfessional } from '../services/authService';
 
-const SignUp = () => {
+const ProfessionalSignUp = () => {
   const [data, setData] = useState({
     full_name: "",
     email: "",
     password: "",
     confirm: "",
+    phone: "",
   });
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const navigate = useNavigate();
 
-  const handleChange = (e) =>
-    setData({ ...data, [e.target.name]: e.target.value });
+  const validateEmail = (email) => {
+    const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return pattern.test(email);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setData({ ...data, [name]: value });
+    
+    if (name === "email") {
+      if (value && !validateEmail(value)) {
+        setEmailError("Μη έγκυρη μορφή email");
+      } else {
+        setEmailError("");
+      }
+    }
+  };
 
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateEmail(data.email)) {
+      setEmailError("Μη έγκυρη μορφή email");
+      return;
+    }
+    
     if (data.password !== data.confirm) {
       return alert("Οι κωδικοί δεν ταιριάζουν");
     }
+    
     try {
-      await register(data);
-      alert("Επιτυχής εγγραφή!");
+      await registerProfessional(data);
+      alert("Επιτυχής εγγραφή επαγγελματία!");
       navigate('/login');
     } catch (err) {
-      alert("Σφάλμα εγγραφής");
+      const errorMessage = err.response?.data?.error || "Σφάλμα εγγραφής";
+      alert(errorMessage);
       console.error(err);
     }
   };
@@ -53,7 +78,7 @@ const SignUp = () => {
       justifyContent="center"
       sx={{
         background:
-          "linear-gradient(135deg, #dcfce7 0%, #ffffff 50%, #bbf7d0 100%)",
+          "linear-gradient(135deg, #dbeafe 0%, #ffffff 50%, #bfdbfe 100%)",
         p: 2,
       }}
     >
@@ -61,17 +86,29 @@ const SignUp = () => {
         elevation={4}
         sx={{ width: "100%", maxWidth: 440, p: 4, borderRadius: 3 }}
       >
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Button
+            startIcon={<ArrowLeft size={16} />}
+            onClick={() => navigate('/')}
+            sx={{ textTransform: 'none', color: 'text.secondary' }}
+          >
+            Αρχική
+          </Button>
+          <Typography color="text.primary">Εγγραφή Επαγγελματία</Typography>
+        </Breadcrumbs>
+
         <Stack alignItems="center" spacing={2} mb={3}>
           <Box
             display="flex"
             alignItems="center"
             justifyContent="center"
-            bgcolor="#16a34a"
+            bgcolor="#2563eb"
             borderRadius="50%"
             width={64}
             height={64}
           >
-            <User color="#fff" size={32} />
+            <Briefcase color="#fff" size={32} />
           </Box>
           <Typography variant="h4" fontWeight={700}>
             Δημιούργησε λογαριασμό
@@ -99,6 +136,8 @@ const SignUp = () => {
               value={data.email}
               onChange={handleChange}
               required
+              error={!!emailError}
+              helperText={emailError}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -106,6 +145,15 @@ const SignUp = () => {
                   </InputAdornment>
                 ),
               }}
+            />
+            <TextField
+              fullWidth
+              label="Τηλέφωνο"
+              name="phone"
+              type="tel"
+              value={data.phone}
+              onChange={handleChange}
+              required
             />
             <TextField
               fullWidth
@@ -168,11 +216,11 @@ const SignUp = () => {
                 textTransform: "none",
                 py: 1.2,
                 fontWeight: 600,
-                bgcolor: "#16a34a",
-                "&:hover": { bgcolor: "#15803d" },
+                bgcolor: "#2563eb",
+                "&:hover": { bgcolor: "#1d4ed8" },
               }}
             >
-              Δημιουργία λογαριασμού
+              Δημιουργία λογαριασμού επαγγελματία
             </Button>
           </Stack>
         </Box>
@@ -188,4 +236,4 @@ const SignUp = () => {
   );
 };
 
-export default SignUp;
+export default ProfessionalSignUp;

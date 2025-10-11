@@ -1,22 +1,20 @@
 from flask import Blueprint, request, jsonify
 from models.models import db, Service, Professional
+from routes.auth import token_required
 
 service_bp = Blueprint('service_bp', __name__)
 
 # ---------- CREATE ----------
 @service_bp.route('/services', methods=['POST'])
-def create_service():
+@token_required
+def create_service(user):
     data = request.get_json() or {}
 
-    if not all(k in data for k in ('professional_id', 'name')):
+    if 'name' not in data:
         return jsonify({'error': 'Missing required fields'}), 400
 
-    # Optional: έλεγχος αν υπάρχει ο επαγγελματίας
-    if not Professional.query.get(data['professional_id']):
-        return jsonify({'error': 'Professional not found'}), 404
-
     s = Service(
-        professional_id=data['professional_id'],
+        professional_id=user.id,  # Use authenticated user's ID
         name=data['name'],
         duration_minutes=data.get('duration_minutes', 30),
         price=data.get('price', 0.00)
@@ -28,8 +26,9 @@ def create_service():
 
 # ---------- READ ALL ----------
 @service_bp.route('/services', methods=['GET'])
-def get_all_services():
-    services = Service.query.all()
+@token_required
+def get_all_services(user):
+    services = Service.query.filter_by(professional_id=user.id).all()
     return jsonify([
         {
             'id': s.id,
@@ -42,8 +41,9 @@ def get_all_services():
 
 # ---------- READ ONE ----------
 @service_bp.route('/services/<int:id>', methods=['GET'])
-def get_service(id):
-    s = Service.query.get(id)
+@token_required
+def get_service(user, id):
+    s = Service.query.filter_by(id=id, professional_id=user.id).first()
     if not s:
         return jsonify({'error': 'Service not found'}), 404
     return jsonify({
@@ -56,9 +56,10 @@ def get_service(id):
 
 # ---------- UPDATE ----------
 @service_bp.route('/services/<int:id>', methods=['PUT'])
-def update_service(id):
+@token_required
+def update_service(user, id):
     data = request.get_json() or {}
-    s = Service.query.get(id)
+    s = Service.query.filter_by(id=id, professional_id=user.id).first()
     if not s:
         return jsonify({'error': 'Service not found'}), 404
 
@@ -74,8 +75,9 @@ def update_service(id):
 
 # ---------- DELETE ----------
 @service_bp.route('/services/<int:id>', methods=['DELETE'])
-def delete_service(id):
-    s = Service.query.get(id)
+@token_required
+def delete_service(user, id):
+    s = Service.query.filter_by(id=id, professional_id=user.id).first()
     if not s:
         return jsonify({'error': 'Service not found'}), 404
 

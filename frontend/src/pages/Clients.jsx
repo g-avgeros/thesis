@@ -38,7 +38,6 @@ export default function Clients() {
 
   const handleSave = () => {
     const payload = {
-      professional_id: localStorage.getItem('user_id'),
       full_name: current.full_name,
       email: current.email || '',
       phone: current.phone || '',

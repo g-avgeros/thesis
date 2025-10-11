@@ -10,8 +10,9 @@ import {
   Link,
   Stack,
   Paper,
+  Breadcrumbs,
 } from "@mui/material";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import PersonIcon from '@mui/icons-material/Person';
 import { login } from '../services/authService';
 import { useNavigate } from 'react-router-dom';
@@ -19,26 +20,56 @@ import { useNavigate } from 'react-router-dom';
 const Login = () => {
   const [credentials, setCredentials] = useState({ email: "", password: "" });
   const [showPw, setShowPw] = useState(false);
+  const [emailError, setEmailError] = useState("");
   const navigate = useNavigate();
 
-  const handleChange = (e) =>
-    setCredentials({ ...credentials, [e.target.name]: e.target.value });
+  const validateEmail = (email) => {
+    const pattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return pattern.test(email);
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setCredentials({ ...credentials, [name]: value });
+    
+    if (name === "email") {
+      if (value && !validateEmail(value)) {
+        setEmailError("Μη έγκυρη μορφή email");
+      } else {
+        setEmailError("");
+      }
+    }
+  };
 
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateEmail(credentials.email)) {
+      setEmailError("Μη έγκυρη μορφή email");
+      return;
+    }
+    
     try {
       const res = await login({
         email: credentials.email,
         password: credentials.password,
       });
-      const { token, id } = res.data;
+      const { token, id, user_type } = res.data;
       localStorage.setItem('user_id', id);
       localStorage.setItem('token', token);
+      localStorage.setItem('user_type', user_type);
       alert('Επιτυχής σύνδεση!');
-      navigate('/calendar');
+      
+      // Redirect based on user type
+      if (user_type === 'client') {
+        navigate('/client-dashboard');
+      } else {
+        navigate('/calendar');
+      }
     } catch (err) {
       console.error(err.response?.data || err.message);
-      alert('Λάθος email ή κωδικός!');
+      const errorMessage = err.response?.data?.error || 'Λάθος email ή κωδικός!';
+      alert(errorMessage);
     }
   };
 
@@ -63,6 +94,18 @@ const Login = () => {
           borderRadius: 3,
         }}
       >
+        {/* Breadcrumbs */}
+        <Breadcrumbs sx={{ mb: 2 }}>
+          <Button
+            startIcon={<ArrowLeft size={16} />}
+            onClick={() => navigate('/')}
+            sx={{ textTransform: 'none', color: 'text.secondary' }}
+          >
+            Αρχική
+          </Button>
+          <Typography color="text.primary">Σύνδεση</Typography>
+        </Breadcrumbs>
+
         <Stack alignItems="center" spacing={2} mb={3}>
           <Box
             display="flex"
@@ -93,6 +136,8 @@ const Login = () => {
               value={credentials.email}
               onChange={handleChange}
               required
+              error={!!emailError}
+              helperText={emailError}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -163,7 +208,7 @@ const Login = () => {
 
         <Typography variant="body2" textAlign="center" mt={3}>
           Δεν έχεις λογαριασμό;{" "}
-          <Link href="/register" fontWeight={600}>
+          <Link href="/" fontWeight={600}>
             Εγγραφή
           </Link>
         </Typography>

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL,
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -15,6 +15,8 @@ api.interceptors.request.use(config => {
 
 export const login = (payload) => api.post('/login', payload);
 export const register = (payload) => api.post('/register', payload);
+export const registerClient = (payload) => api.post('/register/client', payload);
+export const registerProfessional = (payload) => api.post('/register/professional', payload);
 
 // Profile 
 export const getProfile     = ()      => api.get('/me');

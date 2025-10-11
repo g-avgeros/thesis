@@ -6,6 +6,7 @@ from routes.services import service_bp
 from routes.appointments import appointment_bp
 from routes.clients import client_bp
 from routes.auth import auth_bp
+from routes.schedules import schedules_bp
 import os
 from dotenv import load_dotenv
 
@@ -32,6 +33,7 @@ app.register_blueprint(professional_bp)
 app.register_blueprint(service_bp)
 app.register_blueprint(appointment_bp)
 app.register_blueprint(client_bp)
+app.register_blueprint(schedules_bp)
 
 @app.route('/')
 def index():

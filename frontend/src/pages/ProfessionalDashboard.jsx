@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { Box, Button, Typography, IconButton, Paper, Dialog, DialogTitle, DialogContent, TextField, MenuItem, Stack } from '@mui/material';
+import { Box, Button, Typography, IconButton, Paper } from '@mui/material';
 import { ChevronLeft, ChevronRight, CalendarMonth, Add } from '@mui/icons-material';
 import Layout from '../components/Layout';
+import BookingModal from '../components/BookingModal';
 
-const Calendar = () => {
+const ProfessionalDashboard = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [newEvent, setNewEvent] = useState({ title: '', date: '', time: '', location: '', type: 'meeting' });
+  const [newEvent, setNewEvent] = useState({ service: '', client: '', date: '', timeslot: '' });
 
   const monthNames = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος'];
   const dayNames = ['Κυρ', 'Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ'];
@@ -35,6 +36,18 @@ const Calendar = () => {
     const newDate = new Date(currentDate);
     newDate.setMonth(currentDate.getMonth() + direction);
     setCurrentDate(newDate);
+  };
+
+  const handleBookingConfirm = (bookingData) => {
+    console.log('New booking created:', bookingData);
+    // Here you would typically save the booking to your backend
+    setOpenDialog(false);
+    setNewEvent({ service: '', client: '', date: '', timeslot: '' });
+  };
+
+  const handleBookingClose = () => {
+    setOpenDialog(false);
+    setNewEvent({ service: '', client: '', date: '', timeslot: '' });
   };
 
   return (
@@ -94,68 +107,15 @@ const Calendar = () => {
           </Box>
         </Paper>
 
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-          <DialogTitle>Νέο Γεγονός</DialogTitle>
-          <DialogContent>
-            <Stack spacing={2} mt={1}>
-              <TextField
-                label="Υπηρεσία"
-                value={newEvent.service}
-                onChange={(e) => setNewEvent({ ...newEvent, service: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                label="Ημερομηνία"
-                type="date"
-                value={newEvent.date}
-                onChange={(e) => setNewEvent({ ...newEvent, date: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              <TextField
-                label="Ώρα"
-                type="time"
-                value={newEvent.time}
-                onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
-                InputLabelProps={{ shrink: true }}
-                fullWidth
-              />
-              <TextField
-                label="Τοποθεσία"
-                value={newEvent.location}
-                onChange={(e) => setNewEvent({ ...newEvent, location: e.target.value })}
-                fullWidth
-              />
-              <TextField
-                label="Τύπος"
-                select
-                value={newEvent.type}
-                onChange={(e) => setNewEvent({ ...newEvent, type: e.target.value })}
-                fullWidth
-              >
-                <MenuItem value="meeting">Συνάντηση</MenuItem>
-                <MenuItem value="presentation">Παρουσίαση</MenuItem>
-                <MenuItem value="personal">Προσωπικό</MenuItem>
-              </TextField>
-              <Box display="flex" gap={2} justifyContent="flex-end" mt={2}>
-                <Button onClick={() => setOpenDialog(false)}>Ακύρωση</Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    // can handle add event logic here
-                    setOpenDialog(false);
-                    setNewEvent({ title: '', date: '', time: '', location: '', type: 'meeting' });
-                  }}
-                >
-                  Προσθήκη
-                </Button>
-              </Box>
-            </Stack>
-          </DialogContent>
-        </Dialog>
+        <BookingModal
+          open={openDialog}
+          onClose={handleBookingClose}
+          onConfirm={handleBookingConfirm}
+          professionalId={1} // You can get this from user context or props
+        />
       </Box>
     </Layout>
   );
 };
 
-export default Calendar;
+export default ProfessionalDashboard;
