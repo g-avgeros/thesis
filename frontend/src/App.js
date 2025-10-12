@@ -11,7 +11,10 @@ import ClientDashboard from './pages/ClientDashboard';
 import Schedule from './pages/Schedule';
 
 function App() {
-  const token = localStorage.getItem('token');
+  const ProtectedRoute = ({ children }) => {
+    const token = localStorage.getItem('token');
+    return token ? children : <Navigate to="/login" replace />;
+  };
 
   return (
     <BrowserRouter>
@@ -20,23 +23,17 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register/client" element={<ClientSignUp />} />
         <Route path="/register/professional" element={<ProfessionalSignUp />} />
-        <Route path="/calendar" element={<ProfessionalDashboard />} />
-        <Route path="/schedule" element={<Schedule />} />
-        <Route path="/services" element={<Services />} />
-        <Route path="/clients" element={<Clients />} />
+        <Route path="/calendar" element={<ProtectedRoute><ProfessionalDashboard /></ProtectedRoute>} />
+        <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
+        <Route path="/services" element={<ProtectedRoute><Services /></ProtectedRoute>} />
+        <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
         <Route
             path="/client-dashboard"
-            element={ token
-              ? <ClientDashboard />
-              : <Navigate to="/login" replace />
-            }
+            element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>}
           />
         <Route
             path="/settings"
-            element={ token
-              ? <ProfileSettings />
-              : <Navigate to="/login" replace />
-            }
+            element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>}
           />
       </Routes>
     </BrowserRouter>

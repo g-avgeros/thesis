@@ -13,16 +13,16 @@ import Layout from '../components/Layout';
 
 export default function Services() {
   const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState({ name: '', duration_minutes: '', price: '' });
+  const nameError = !current.name?.trim();
+  const durationError = current.duration_minutes === '' || isNaN(+current.duration_minutes);
+  const priceError = current.price === '' || isNaN(+current.price);
   const [isEdit, setIsEdit] = useState(false);
 
   const load = () => {
-    setLoading(true);
     getServices()
-      .then(res => setServices(res.data))
-      .finally(() => setLoading(false));
+      .then(res => setServices(res.data));
   };
 
   useEffect(() => { load(); }, []);
@@ -40,6 +40,7 @@ export default function Services() {
   const handleClose = () => setOpen(false);
 
   const handleSave = () => {
+    if (nameError || durationError || priceError) return;
     const payload = {
       name: current.name,
       duration_minutes: +current.duration_minutes,
@@ -95,18 +96,18 @@ export default function Services() {
         <DialogTitle>{isEdit ? 'Επεξεργασία Υπηρεσίας' : 'Νέα Υπηρεσία'}</DialogTitle>
         <DialogContent>
           <TextField
-            label="Υπηρεσία" fullWidth sx={{ mb: 2 }}
+            label="Υπηρεσία" fullWidth sx={{ mb: 2 }} required error={nameError}
             value={current.name}
             onChange={e => setCurrent(prev => ({ ...prev, name: e.target.value }))}
           />
           <TextField
-            label="Διάρκεια (λεπτά)" fullWidth sx={{ mb: 2 }}
+            label="Διάρκεια (λεπτά)" fullWidth sx={{ mb: 2 }} required error={durationError}
             type="number"
             value={current.duration_minutes}
             onChange={e => setCurrent(prev => ({ ...prev, duration_minutes: e.target.value }))}
           />
           <TextField
-            label="Τιμή" fullWidth sx={{ mb: 2 }}
+            label="Τιμή" fullWidth sx={{ mb: 2 }} required error={priceError}
             type="number"
             value={current.price}
             onChange={e => setCurrent(prev => ({ ...prev, price: e.target.value }))}

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from models.models import db, Client, Professional
 from routes.auth import token_required
+import time
 
 client_bp = Blueprint('client_bp', __name__)
 
@@ -10,13 +11,26 @@ client_bp = Blueprint('client_bp', __name__)
 def create_client(user):
     data = request.get_json() or {}
 
-    if 'full_name' not in data:
-        return jsonify({'error': 'Missing required fields'}), 400
+    # Require full_name and phone
+    if not data.get('full_name') or not data.get('phone'):
+        return jsonify({'error': 'Missing required fields: full_name and phone are required'}), 400
 
+    # Email is optional; do not auto-generate if missing
+    email = data.get('email')
+
+    # If phone provided, reuse existing client record
+    phone = data.get('phone')
+    if phone:
+        existing = Client.query.filter_by(phone=phone).first()
+        if existing:
+            return jsonify({'id': existing.id, 'full_name': existing.full_name}), 200
+
+    # Some schemas have NOT NULL on password_hash; store empty string
     c = Client(
         full_name=data['full_name'],
-        email=data.get('email'),
-        phone=data.get('phone'),
+        email=email,
+        password_hash=data.get('password_hash', ''),
+        phone=phone,
         notes=data.get('notes')
     )
     db.session.add(c)

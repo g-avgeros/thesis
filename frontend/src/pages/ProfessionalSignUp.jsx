@@ -11,10 +11,15 @@ import {
   Stack,
   Paper,
   Breadcrumbs,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
 } from "@mui/material";
 import { Mail, Lock, Eye, EyeOff, Briefcase, ArrowLeft } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
-import { registerProfessional } from '../services/authService';
+import { registerProfessional, getCategories } from '../services/authService';
 
 const ProfessionalSignUp = () => {
   const [data, setData] = useState({
@@ -23,10 +28,13 @@ const ProfessionalSignUp = () => {
     password: "",
     confirm: "",
     phone: "",
+    address: "",
+    category_id: "",
   });
   const [showPw, setShowPw] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [categories, setCategories] = useState([]);
   const navigate = useNavigate();
 
   const validateEmail = (email) => {
@@ -47,6 +55,10 @@ const ProfessionalSignUp = () => {
     }
   };
 
+  React.useEffect(() => {
+    getCategories().then(res => setCategories(res.data || [])).catch(() => setCategories([]));
+  }, []);
+
   const handleSignUpSubmit = async (e) => {
     e.preventDefault();
     
@@ -60,7 +72,12 @@ const ProfessionalSignUp = () => {
     }
     
     try {
-      await registerProfessional(data);
+      const payload = {
+        ...data,
+        category_ids: data.category_id ? [data.category_id] : [],
+      };
+      delete payload.category_id;
+      await registerProfessional(payload);
       alert("Επιτυχής εγγραφή επαγγελματία!");
       navigate('/login');
     } catch (err) {
@@ -128,6 +145,22 @@ const ProfessionalSignUp = () => {
               onChange={handleChange}
               required
             />
+            {/* Category single-select (dropdown closes on select) */}
+            <FormControl fullWidth>
+              <InputLabel id="categories-label">Κατηγορία</InputLabel>
+              <Select
+                labelId="categories-label"
+                value={data.category_id || ''}
+                label="Κατηγορία"
+                onChange={(e) => setData(prev => ({ ...prev, category_id: e.target.value }))}
+                MenuProps={{ PaperProps: { style: { maxHeight: 300, width: 300 } } }}
+                sx={{ mt: 1 }}
+              >
+                {(categories || []).map(cat => (
+                  <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <TextField
               fullWidth
               label="Email"
@@ -154,6 +187,13 @@ const ProfessionalSignUp = () => {
               value={data.phone}
               onChange={handleChange}
               required
+            />
+            <TextField
+              fullWidth
+              label="Διεύθυνση"
+              name="address"
+              value={data.address}
+              onChange={handleChange}
             />
             <TextField
               fullWidth

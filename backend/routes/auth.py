@@ -1,6 +1,6 @@
 import os, datetime, jwt, bcrypt, re
 from flask import Blueprint, request, jsonify, current_app as app
-from models.models import db, Professional, Client
+from models.models import db, Professional, Client, Category
 from functools import wraps
 
 auth_bp = Blueprint("auth_bp", __name__)
@@ -59,8 +59,15 @@ def register_professional():
     prof = Professional(
         full_name=data["full_name"],
         email=data["email"],
-        password_hash=pw_hash
+        password_hash=pw_hash,
+        address=data.get("address")
     )
+
+    # Attach categories if provided
+    category_ids = data.get('category_ids') or []
+    if isinstance(category_ids, list) and category_ids:
+        cats = Category.query.filter(Category.id.in_(category_ids)).all()
+        prof.categories = cats
 
     db.session.add(prof)
     db.session.commit()
@@ -129,7 +136,9 @@ def get_profile(user):
     return jsonify({
         "id": user.id,
         "full_name": user.full_name,
-        "email": user.email
+        "email": user.email,
+        **({"address": getattr(user, 'address', None)} if hasattr(user, 'address') else {}),
+        **({"categories": [ { 'id': c.id, 'name': c.name } for c in getattr(user, 'categories', []) ]} if hasattr(user, 'categories') else {})
     })
 
 @auth_bp.route("/me", methods=["PUT"])
@@ -154,6 +163,12 @@ def update_profile(user):
     # 2) Πάντα ενημέρωσε το full_name αν στάλθηκε
     if 'full_name' in data:
         user.full_name = data['full_name']
+    if 'address' in data and hasattr(user, 'address'):
+        user.address = data['address']
+    # Update categories for professionals
+    if 'category_ids' in data and hasattr(user, 'categories') and isinstance(data['category_ids'], list):
+        cats = Category.query.filter(Category.id.in_(data['category_ids'])).all()
+        user.categories = cats
 
     db.session.commit()
     return jsonify({'message': 'Profile updated successfully'})

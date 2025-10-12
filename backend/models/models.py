@@ -2,6 +2,20 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+# Association table for many-to-many Professional <-> Category
+professional_categories = db.Table(
+    'professional_categories',
+    db.Column('professional_id', db.Integer, db.ForeignKey('professionals.id'), primary_key=True),
+    db.Column('category_id', db.Integer, db.ForeignKey('categories.id'), primary_key=True),
+)
+
+# Categories (e.g., γυμναστές, περιποίηση άκρων, δάσκαλοι, barber shop, άλλο)
+class Category(db.Model):
+    __tablename__ = 'categories'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    slug = db.Column(db.String(120), unique=True)
+
 # 1. PROFESSIONALS
 class Professional(db.Model):
     __tablename__ = 'professionals'
@@ -9,6 +23,8 @@ class Professional(db.Model):
     full_name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
+    address = db.Column(db.String(255))
+    categories = db.relationship('Category', secondary=professional_categories, backref='professionals', lazy=True)
 
     services = db.relationship('Service', backref='professional', lazy=True)
     appointments = db.relationship('Appointment', backref='professional', lazy=True)
@@ -30,7 +46,7 @@ class Client(db.Model):
     __tablename__ = 'clients'
     id = db.Column(db.Integer, primary_key=True)
     full_name = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(100), unique=True, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False)
     phone = db.Column(db.String(20))
     notes = db.Column(db.Text)

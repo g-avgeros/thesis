@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,6 +17,9 @@ import {
   Chip,
   Fade,
 } from '@mui/material';
+import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
+import elLocale from 'date-fns/locale/el';
 import {
   X,
   Calendar,
@@ -25,8 +28,25 @@ import {
   User,
   Check,
 } from 'lucide-react';
+import { getServices, getClients, createClient, getSchedules, getAppointments } from '../services/authService';
+import Autocomplete from '@mui/material/Autocomplete';
 
 const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
+  // Helper functions to handle date-only values in LOCAL time (avoid UTC shifts)
+  const dateToYMDLocal = (date) => {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const parseYMDToLocalDate = (ymd) => {
+    if (!ymd) return null;
+    const [y, m, d] = ymd.split('-').map(Number);
+    return new Date(y, (m || 1) - 1, d || 1);
+  };
+
   const [formData, setFormData] = useState({
     service: '',
     client: '',
@@ -39,55 +59,114 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
   const [services, setServices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [clientInput, setClientInput] = useState('');
+  const [selectedClient, setSelectedClient] = useState(null); // { id, label, email }
+  const [clientPhone, setClientPhone] = useState('');
+  const [schedules, setSchedules] = useState([]);
+  const [appointments, setAppointments] = useState([]);
 
-  // Generate time slots based on professional's schedule
-  const generateTimeSlots = (date) => {
+  // Generate slots from schedules and exclude booked appointments
+  const generateSlotsFromSchedule = useCallback((dateStr) => {
+    const date = parseYMDToLocalDate(dateStr);
+    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const day = dayNames[date.getDay()];
+    const entry = schedules.find(s => s.day_of_week === day && s.is_available);
+    if (!entry) return [];
+
+    const toMinutes = (t) => {
+      const [h,m] = (t || '00:00').split(':').map(Number);
+      return h*60 + m;
+    };
+    const start = toMinutes(entry.start_time || '09:00');
+    const end = toMinutes(entry.end_time || '17:00');
+
+    // compute service duration minutes (default 30)
+    const selectedService = services.find(s => String(s.id) === String(formData.service));
+    const slotDuration = selectedService?.duration_minutes || 30;
+    const grid = 30; // generate every 30 minutes
+
+    const bookedForDay = (appointments || []).filter(a => {
+      const d = new Date(a.start_time);
+      return dateToYMDLocal(d) === dateStr;
+    }).map(a => {
+      const s = new Date(a.start_time);
+      const e = new Date(a.end_time);
+      return { start: s.getHours()*60 + s.getMinutes(), end: e.getHours()*60 + e.getMinutes() };
+    });
+
     const slots = [];
-    const startHour = 9;
-    const endHour = 18;
-    
-    for (let hour = startHour; hour < endHour; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const displayTime = hour < 12 
-          ? `${hour === 0 ? 12 : hour}:${minute.toString().padStart(2, '0')} πμ`
-          : hour === 12 
-            ? `12:${minute.toString().padStart(2, '0')} μμ`
-            : `${hour - 12}:${minute.toString().padStart(2, '0')} μμ`;
-        
-        slots.push({
-          id: `${date}-${timeString}`,
-          time: timeString,
-          displayTime: displayTime,
-          available: Math.random() > 0.3, // Mock availability
-        });
+    for (let minutes = start; minutes + slotDuration <= end; minutes += grid) {
+      const hh = Math.floor(minutes / 60).toString().padStart(2,'0');
+      const mm = (minutes % 60).toString().padStart(2,'0');
+      const timeString = `${hh}:${mm}`;
+      const hour = Number(hh);
+      const displayTime = hour < 12 ? `${hour === 0 ? 12 : hour}:${mm} πμ` : (hour === 12 ? `12:${mm} μμ` : `${hour - 12}:${mm} μμ`);
+
+      // check overlap for full duration window
+      const slotEnd = minutes + slotDuration;
+      const overlaps = bookedForDay.some(b => minutes < b.end && slotEnd > b.start);
+      if (!overlaps) {
+        slots.push({ id: `${dateStr}-${timeString}`, time: timeString, displayTime, available: true });
       }
     }
     return slots;
-  };
+  }, [schedules, appointments, services, formData.service]);
 
   // Fetch services and clients data when modal opens
   useEffect(() => {
     if (open) {
+      // Reset all form-related state each time the modal opens
+      resetForm();
+      setSelectedClient(null);
+      setClientInput('');
+      setClientPhone('');
       fetchServices();
       fetchClients();
     }
   }, [open]);
 
+  // Prepare schedules/appointments loader
+  const professionalIdFromContext = useCallback(() => {
+    return professionalId || Number(localStorage.getItem('user_id')) || undefined;
+  }, [professionalId]);
+
+  const fetchSchedulesAndAppointments = useCallback(async () => {
+    try {
+      const pid = professionalIdFromContext();
+      if (!pid) return;
+      const [schedRes, apptRes] = await Promise.all([
+        getSchedules(pid),
+        getAppointments(),
+      ]);
+      setSchedules(schedRes?.data?.schedules || []);
+      setAppointments(apptRes?.data || []);
+    } catch (e) {
+      console.error('Failed to load schedules/appointments', e);
+    }
+  }, [professionalIdFromContext]);
+
+  // Load schedules and appointments when modal opens
+  useEffect(() => {
+    if (!open) return;
+    const run = async () => {
+      await fetchSchedulesAndAppointments();
+    };
+    run();
+  }, [open, fetchSchedulesAndAppointments]);
+
   useEffect(() => {
     if (formData.date) {
-      setAvailableSlots(generateTimeSlots(formData.date));
+      const slots = generateSlotsFromSchedule(formData.date);
+      setAvailableSlots(slots);
     }
-  }, [formData.date]);
+  }, [formData.date, schedules, appointments, generateSlotsFromSchedule]);
 
   const fetchServices = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:5000/services');
-      const result = await response.json();
-      if (response.ok) {
-        setServices(result.services || []);
-      }
+      const res = await getServices();
+      const data = res?.data;
+      setServices(Array.isArray(data) ? data : (data?.services || []));
     } catch (error) {
       console.error('Error fetching services:', error);
     } finally {
@@ -97,15 +176,16 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
 
   const fetchClients = async () => {
     try {
-      const response = await fetch('http://localhost:5000/clients');
-      const result = await response.json();
-      if (response.ok) {
-        setClients(result.clients || []);
-      }
+      const res = await getClients();
+      const data = res?.data;
+      const list = Array.isArray(data) ? data : (data?.clients || []);
+      setClients(list);
     } catch (error) {
       console.error('Error fetching clients:', error);
     }
   };
+
+  
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -124,12 +204,46 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
     }
   };
 
-  const handleConfirm = () => {
-    if (formData.service && formData.client && formData.date && selectedSlot) {
+  const handleConfirm = async () => {
+    if (!formData.service || !formData.date || !selectedSlot) return;
+
+    let clientId = formData.client;
+
+    // If no existing client is selected but there is input, auto-create client
+    if (!clientId && clientInput && clientInput.trim().length > 0) {
+      if (!clientPhone || clientPhone.trim().length === 0) {
+        return; // guard: phone required for auto-create
+      }
+      try {
+        setLoading(true);
+        const full_name = clientInput.trim();
+        const res = await createClient({ full_name, phone: clientPhone.trim() });
+        clientId = res?.data?.id;
+        if (clientId) {
+          // Update local clients list to include the newly created one
+          setClients(prev => [
+            ...prev,
+            { id: clientId, full_name, email: '', phone: clientPhone.trim() },
+          ]);
+          setSelectedClient({ id: clientId, label: clientInput.trim(), email: '' });
+        }
+      } catch (e) {
+        console.error('Failed to auto-create client', e);
+        alert('Αποτυχία δημιουργίας πελάτη. Παρακαλώ δοκιμάστε ξανά.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (clientId) {
+      const svc = services.find(s => String(s.id) === String(formData.service));
+      const serviceDurationMinutes = svc?.duration_minutes || 30;
       onConfirm({
         ...formData,
+        client: clientId,
         professionalId,
         selectedSlot,
+        serviceDurationMinutes,
       });
       onClose();
     }
@@ -145,6 +259,10 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
     });
     setSelectedSlot(null);
     setAvailableSlots([]);
+    // also clear client selector state
+    setSelectedClient(null);
+    setClientInput('');
+    setClientPhone('');
   };
 
   const handleClose = () => {
@@ -270,7 +388,7 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
             </FormControl>
           </Box>
 
-          {/* Client Selection */}
+          {/* Client Selection (Typeahead) */}
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <User size={20} color="#8b5cf6" />
@@ -278,46 +396,56 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
                 Πελάτης
               </Typography>
             </Box>
-            <FormControl fullWidth>
-              <InputLabel>Επιλέξτε Πελάτη</InputLabel>
-              <Select
-                value={formData.client}
-                onChange={(e) => handleInputChange('client', e.target.value)}
-                label="Επιλέξτε Πελάτη"
-                disabled={loading}
-                sx={{
-                  borderRadius: '12px',
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#d1d5db',
-                    borderWidth: 2,
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#3b82f6',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#3b82f6',
-                    borderWidth: 2,
-                  },
-                }}
-              >
-                {clients.length === 0 && !loading ? (
-                  <MenuItem disabled>
-                    <Typography color="text.secondary">Δεν υπάρχουν διαθέσιμοι πελάτες</Typography>
-                  </MenuItem>
-                ) : (
-                  clients.map((client) => (
-                    <MenuItem key={client.id} value={client.id}>
-                      <Box>
-                        <Typography fontWeight={500}>{client.full_name}</Typography>
-                        <Typography variant="body2" color="#6b7280">
-                          {client.email}
-                        </Typography>
-                      </Box>
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              freeSolo
+              options={clients.map(c => ({ id: c.id, label: c.full_name, email: c.email, phone: c.phone }))}
+              value={selectedClient}
+              onChange={(e, newValue) => {
+                setSelectedClient(newValue);
+                handleInputChange('client', newValue?.id || '');
+                if (newValue?.id) {
+                  setClientPhone(newValue.phone || '');
+                } else {
+                  setClientPhone('');
+                }
+              }}
+              inputValue={clientInput}
+              onInputChange={(e, newInput) => {
+                setClientInput(newInput);
+                if (!newInput) {
+                  setSelectedClient(null);
+                  handleInputChange('client', '');
+                }
+              }}
+              loading={loading}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Επιλέξτε ή πληκτρολογήστε Πελάτη"
+                  placeholder="Π.χ. Γιάννης Παπαδόπουλος"
+                />
+              )}
+              renderOption={(props, option) => (
+                <li {...props} key={option.id || option.label}>
+                  <Box>
+                    <Typography fontWeight={500}>{option.label}</Typography>
+                    {option.email && (
+                      <Typography variant="body2" color="#6b7280">{option.email}</Typography>
+                    )}
+                  </Box>
+                </li>
+              )}
+            />
+            {/* Phone field: visible always; disabled when existing client selected */}
+            <TextField
+              label={selectedClient?.id ? 'Τηλέφωνο πελάτη' : 'Τηλέφωνο (απαραίτητο για νέο πελάτη)'}
+              fullWidth
+              required={!selectedClient?.id}
+              disabled={!!selectedClient?.id}
+              value={clientPhone}
+              onChange={(e) => setClientPhone(e.target.value)}
+              sx={{ mt: 2 }}
+            />
           </Box>
 
           {/* Date Selection */}
@@ -328,31 +456,30 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
                 Ημερομηνία
               </Typography>
             </Box>
-            <TextField
-              fullWidth
-              label="Ημερομηνία Ραντεβού"
-              type="date"
-              value={formData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  borderWidth: 2,
-                  '& fieldset': {
-                    borderColor: '#d1d5db',
-                    borderWidth: 2,
-                  },
-                  '&:hover fieldset': {
-                    borderColor: '#3b82f6',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#3b82f6',
-                    borderWidth: 2,
-                  },
-                },
-              }}
-            />
+            <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={elLocale}>
+              <DatePicker
+                label="Ημερομηνία Ραντεβού"
+                value={formData.date ? parseYMDToLocalDate(formData.date) : null}
+                onChange={(newValue) => {
+                  const d = newValue ? new Date(newValue) : null;
+                  handleInputChange('date', d ? dateToYMDLocal(d) : '');
+                }}
+                shouldDisableDate={(day) => {
+                  const today = new Date();
+                  today.setHours(0,0,0,0);
+                  const current = new Date(day);
+                  current.setHours(0,0,0,0);
+                  // disable past dates
+                  if (current < today) return true;
+                  // disable weekdays without available schedule
+                  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+                  const dayName = dayNames[current.getDay()];
+                  const available = schedules.some(s => s.day_of_week === dayName && s.is_available);
+                  return !available;
+                }}
+                slotProps={{ textField: { fullWidth: true } }}
+              />
+            </LocalizationProvider>
           </Box>
 
           {/* Time Slots Selection - Only show after date is selected */}
@@ -366,7 +493,7 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
                   </Typography>
                 </Box>
                 <Typography variant="body2" color="#6b7280" sx={{ mb: 2 }}>
-                  Διαθέσιμες ώρες για {new Date(formData.date).toLocaleDateString('el-GR')}:
+                  Διαθέσιμες ώρες για {parseYMDToLocalDate(formData.date).toLocaleDateString('el-GR')}:
                 </Typography>
                 <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
                   <Grid container spacing={1}>
@@ -432,7 +559,8 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
         </Button>
         <Button
           onClick={handleConfirm}
-          disabled={!formData.service || !formData.client || !formData.date || !selectedSlot}
+          disabled={!formData.service || (!formData.client && (!clientInput || !clientPhone)) || !formData.date || !selectedSlot}
+          variant="contained"
           startIcon={<Check size={18} />}
           sx={{
             px: 3,
@@ -441,6 +569,7 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
             textTransform: 'none',
             fontWeight: 700,
             background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+            color: '#ffffff',
             boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
             '&:hover': {
               background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',

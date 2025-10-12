@@ -33,3 +33,14 @@ export const getClients   = () => api.get('/clients');
 export const createClient = payload => api.post('/clients', payload);
 export const updateClient = (id, payload) => api.put(`/clients/${id}`, payload);
 export const deleteClient = id => api.delete(`/clients/${id}`);
+
+// Professionals
+export const getProfessionals = () => api.get('/professionals');
+export const getCategories    = () => api.get('/categories');
+
+// Schedules & Appointments
+export const getSchedules    = (professionalId) => api.get(`/schedules`, { params: { professional_id: professionalId } });
+export const getAppointments = () => api.get('/appointments');
+export const createAppointment = payload => api.post('/appointments', payload);
+export const createAppointmentAsClient = payload => api.post('/appointments/client', payload);
+export const cancelAppointment = id => api.post(`/appointments/${id}/cancel`);

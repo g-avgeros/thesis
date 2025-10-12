@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from models.models import db, Professional
+from models.models import db, Professional, Category
 
 professional_bp = Blueprint('professional_bp', __name__)
 
@@ -16,15 +16,23 @@ def create_professional():
     prof = Professional(
         full_name=data['full_name'],
         email=data['email'],
-        password_hash=data['password_hash']
+        password_hash=data['password_hash'],
+        address=data.get('address')
     )
+    # attach categories if provided
+    category_ids = data.get('category_ids') or []
+    if isinstance(category_ids, list) and category_ids:
+        cats = Category.query.filter(Category.id.in_(category_ids)).all()
+        prof.categories = cats
     db.session.add(prof)
     db.session.commit()
 
     return jsonify({
         'id': prof.id,
         'full_name': prof.full_name,
-        'email': prof.email
+        'email': prof.email,
+        'address': prof.address,
+        'categories': [ { 'id': c.id, 'name': c.name } for c in prof.categories ]
     }), 201
 
 # ---------- READ ALL ----------
@@ -35,7 +43,9 @@ def get_all_professionals():
         {
             'id': p.id,
             'full_name': p.full_name,
-            'email': p.email
+            'email': p.email,
+            'address': p.address,
+            'categories': [ { 'id': c.id, 'name': c.name } for c in p.categories ]
         } for p in professionals
     ])
 
@@ -48,7 +58,9 @@ def get_professional(id):
     return jsonify({
         'id': p.id,
         'full_name': p.full_name,
-        'email': p.email
+        'email': p.email,
+        'address': p.address,
+        'categories': [ { 'id': c.id, 'name': c.name } for c in p.categories ]
     })
 
 # ---------- UPDATE ----------
@@ -67,6 +79,11 @@ def update_professional(id):
         p.email = data['email']
     if 'password_hash' in data:
         p.password_hash = data['password_hash']
+    if 'address' in data:
+        p.address = data['address']
+    if 'category_ids' in data and isinstance(data['category_ids'], list):
+        cats = Category.query.filter(Category.id.in_(data['category_ids'])).all()
+        p.categories = cats
 
     db.session.commit()
     return jsonify({'message': 'Professional updated'})

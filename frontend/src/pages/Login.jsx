@@ -6,7 +6,6 @@ import {
   IconButton,
   TextField,
   InputAdornment,
-  Checkbox,
   Link,
   Stack,
   Paper,
@@ -175,19 +174,7 @@ const Login = () => {
               }}
             />
 
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <Box display="flex" alignItems="center" gap={0.5}>
-                <Checkbox size="small" />
-                <Typography variant="body2">Θυμήσου με</Typography>
-              </Box>
-              <Link href="#" variant="body2">
-                Ξέχασες το password;
-              </Link>
-            </Box>
+            {/* Removed Remember me and Forgot password */}
 
             <Button
               variant="contained"

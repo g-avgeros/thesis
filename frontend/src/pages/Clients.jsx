@@ -13,6 +13,8 @@ export default function Clients() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState({ full_name: '', email: '', phone: '', notes: '' });
+  const nameError = !current.full_name?.trim();
+  const phoneError = !current.phone?.trim();
   const [isEdit, setIsEdit] = useState(false);
 
   const load = () => {
@@ -37,6 +39,7 @@ export default function Clients() {
   const handleClose = () => setOpen(false);
 
   const handleSave = () => {
+    if (nameError || phoneError) return;
     const payload = {
       full_name: current.full_name,
       email: current.email || '',
@@ -95,7 +98,7 @@ export default function Clients() {
         <DialogTitle>{isEdit ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}</DialogTitle>
         <DialogContent>
           <TextField
-            label="Όνομα" fullWidth sx={{ mb: 2 }}
+            label="Όνομα" fullWidth sx={{ mb: 2 }} required error={nameError}
             value={current.full_name}
             onChange={e => setCurrent(prev => ({ ...prev, full_name: e.target.value }))}
           />
@@ -105,7 +108,7 @@ export default function Clients() {
             onChange={e => setCurrent(prev => ({ ...prev, email: e.target.value }))}
           />
           <TextField
-            label="Τηλέφωνο" fullWidth sx={{ mb: 2 }}
+            label="Τηλέφωνο" fullWidth sx={{ mb: 2 }} required error={phoneError}
             value={current.phone}
             onChange={e => setCurrent(prev => ({ ...prev, phone: e.target.value }))}
           />

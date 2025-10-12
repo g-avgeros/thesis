@@ -1,8 +1,31 @@
 from flask import Blueprint, request, jsonify
-from models.models import db, Service, Professional
+from models.models import db, Service, Professional, Category
 from routes.auth import token_required
 
 service_bp = Blueprint('service_bp', __name__)
+
+# ---------- CATEGORIES (public) ----------
+@service_bp.route('/categories', methods=['GET'])
+def get_categories_public():
+    cats = Category.query.all()
+    return jsonify([{ 'id': c.id, 'name': c.name, 'slug': c.slug } for c in cats])
+
+# Public: list services for a professional
+@service_bp.route('/services/public', methods=['GET'])
+def get_services_public():
+    professional_id = request.args.get('professional_id')
+    if not professional_id:
+        return jsonify({'error': 'professional_id is required'}), 400
+    services = Service.query.filter_by(professional_id=professional_id).all()
+    return jsonify([
+        {
+            'id': s.id,
+            'professional_id': s.professional_id,
+            'name': s.name,
+            'duration_minutes': s.duration_minutes,
+            'price': float(s.price),
+        } for s in services
+    ])
 
 # ---------- CREATE ----------
 @service_bp.route('/services', methods=['POST'])
@@ -10,14 +33,15 @@ service_bp = Blueprint('service_bp', __name__)
 def create_service(user):
     data = request.get_json() or {}
 
-    if 'name' not in data:
-        return jsonify({'error': 'Missing required fields'}), 400
+    # Require all three fields
+    if not data.get('name') or data.get('duration_minutes') is None or data.get('price') is None:
+        return jsonify({'error': 'Missing required fields: name, duration_minutes, price'}), 400
 
     s = Service(
         professional_id=user.id,  # Use authenticated user's ID
         name=data['name'],
-        duration_minutes=data.get('duration_minutes', 30),
-        price=data.get('price', 0.00)
+        duration_minutes=data['duration_minutes'],
+        price=data['price']
     )
     db.session.add(s)
     db.session.commit()

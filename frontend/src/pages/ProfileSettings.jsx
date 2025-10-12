@@ -11,14 +11,22 @@ import {
   Divider,
   Fade,
   Slide,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
 } from '@mui/material';
 import { ArrowLeft, User, Lock, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getProfile, updateProfile } from '../services/authService';
+import { getProfile, updateProfile, getCategories } from '../services/authService';
 
 export default function ProfileSettings() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
+  const [address, setAddress] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -30,8 +38,14 @@ export default function ProfileSettings() {
 
   useEffect(() => {
     getProfile()
-      .then(res => setFullName(res.data.full_name))
+      .then(res => {
+        setFullName(res.data.full_name);
+        setAddress(res.data.address || '');
+        const ids = (res.data.categories || []).map(c => c.id);
+        setSelectedCategoryId(ids[0] || '');
+      })
       .catch(() => setError('Couldn’t load profile'));
+    getCategories().then(res => setCategories(res.data || [])).catch(() => setCategories([]));
   }, []);
 
   const handleSubmit = async e => {
@@ -53,6 +67,8 @@ export default function ProfileSettings() {
 
     const payload = {
       full_name: fullName,
+      address,
+      category_ids: selectedCategoryId ? [selectedCategoryId] : [],
       ...(isChangingPassword && {
         old_password: oldPassword,
         new_password: newPassword,
@@ -200,6 +216,44 @@ export default function ProfileSettings() {
                 />
 
                 <Divider sx={{ my: 3 }} />
+
+                <TextField
+                  label="Διεύθυνση"
+                  value={address}
+                  onChange={e => setAddress(e.target.value)}
+                  fullWidth
+                  sx={{
+                    mb: 3,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '12px',
+                      backgroundColor: '#f9fafb',
+                      '&:hover': {
+                        backgroundColor: '#f3f4f6',
+                      },
+                      '&.Mui-focused': {
+                        backgroundColor: 'white',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      },
+                    },
+                  }}
+                />
+
+                {/* Category single-select (dropdown closes on select) */}
+                <FormControl fullWidth sx={{ mb: 3 }}>
+                  <InputLabel id="profile-categories-label">Κατηγορία</InputLabel>
+                  <Select
+                    labelId="profile-categories-label"
+                    value={selectedCategoryId}
+                    label="Κατηγορία"
+                    onChange={(e) => setSelectedCategoryId(e.target.value)}
+                    MenuProps={{ PaperProps: { style: { maxHeight: 300, width: 300 } } }}
+                    sx={{ mt: 1 }}
+                  >
+                    {(categories || []).map(cat => (
+                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <Box
