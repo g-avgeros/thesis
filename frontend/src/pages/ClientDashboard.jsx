@@ -18,7 +18,13 @@ import {
   Fade,
   Slide,
   Skeleton,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
+// (Inline calendar used instead of x-date-pickers)
+// import elLocale from 'date-fns/locale/el';
 import {
   Search,
   LogOut,
@@ -29,8 +35,9 @@ import {
   Plus,
   Filter,
 } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { getProfessionals, createAppointmentAsClient, getAppointments, cancelAppointment } from '../services/authService';
+import { getProfessionals, createAppointmentAsClient, getAppointments, cancelAppointment, getCategories } from '../services/authService';
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ClientBookingModal from '../components/ClientBookingModal';
 import axios from 'axios';
@@ -47,6 +54,9 @@ const ClientDashboard = () => {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [activeProfessionalId, setActiveProfessionalId] = useState(null);
   const navigate = useNavigate();
+  const [categories, setCategories] = useState([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedBookingDate, setSelectedBookingDate] = useState(null);
 
   // Load professionals from backend
   useEffect(() => {
@@ -82,6 +92,16 @@ const ClientDashboard = () => {
     load();
   }, []);
 
+  useEffect(() => {
+    const loadCats = async () => {
+      try {
+        const res = await getCategories();
+        setCategories(Array.isArray(res.data) ? res.data : []);
+      } catch (e) { setCategories([]); }
+    };
+    loadCats();
+  }, []);
+
   // Load client's appointments
   useEffect(() => {
     const loadBookings = async () => {
@@ -107,22 +127,7 @@ const ClientDashboard = () => {
   };
 
   const handleSearchChange = (event) => {
-    const term = event.target.value;
-    setSearchTerm(term);
-    
-    if (term.trim() === '') {
-      setFilteredProfessionals(professionals);
-    } else {
-      const filtered = professionals.filter(professional =>
-        professional.name.toLowerCase().includes(term.toLowerCase()) ||
-        professional.specialty.toLowerCase().includes(term.toLowerCase()) ||
-        professional.location.toLowerCase().includes(term.toLowerCase()) ||
-        professional.services.some(service => 
-          service.toLowerCase().includes(term.toLowerCase())
-        )
-      );
-      setFilteredProfessionals(filtered);
-    }
+    setSearchTerm(event.target.value);
   };
 
   const handleBookAppointment = (professionalId) => {
@@ -150,7 +155,19 @@ const ClientDashboard = () => {
     }
   };
 
-  // removed unused formatDate helper
+  // apply combined filter whenever inputs change
+  useEffect(() => {
+    const term = searchTerm.trim().toLowerCase();
+    const byText = (p) => (
+      !term ||
+      p.name.toLowerCase().includes(term) ||
+      p.specialty.toLowerCase().includes(term) ||
+      String(p.address || '').toLowerCase().includes(term) ||
+      (p.services || []).some(s => String(s).toLowerCase().includes(term))
+    );
+    const byCategory = (p) => !selectedCategoryId || (p.categories || []).some(c => String(c.id) === String(selectedCategoryId));
+    setFilteredProfessionals((professionals || []).filter(p => byText(p) && byCategory(p)));
+  }, [searchTerm, selectedCategoryId, professionals]);
 
 
   return (
@@ -160,6 +177,9 @@ const ClientDashboard = () => {
         minHeight: '100vh',
         background: 'linear-gradient(135deg, var(--primary-50) 0%, var(--white) 50%, var(--secondary-50) 100%)',
         p: { xs: 2, md: 3 },
+        width: '100%',
+        maxWidth: '100vw',
+        mx: 0,
         fontFamily: 'var(--font-family)',
       }}
       className="animate-fade-in"
@@ -172,8 +192,8 @@ const ClientDashboard = () => {
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            mb: 4,
-            p: { xs: 3, md: 4 },
+            mb: { xs: 2, md: 4 },
+            p: { xs: 2, md: 4 },
             borderRadius: 'var(--radius-2xl)',
             overflow: 'hidden',
             boxShadow: 'var(--shadow-xl)',
@@ -186,7 +206,7 @@ const ClientDashboard = () => {
           <Box sx={{ position: 'absolute', right: 80, bottom: -30, width: 120, height: 120, borderRadius: '50%', bgcolor: 'rgba(255,255,255,0.06)' }} />
 
           <Box sx={{ position: 'relative' }}>
-            <Typography variant="h4" fontWeight={800} sx={{ mb: 1 }}>
+            <Typography variant="h4" fontWeight={800} sx={{ mb: 1, fontSize: { xs: '1.5rem', md: '2.125rem' } }}>
               Καλώς ήρθατε!
             </Typography>
             <Typography variant="body1" sx={{ opacity: 0.9 }}>
@@ -237,19 +257,227 @@ const ClientDashboard = () => {
 
       {/* Stats Cards removed as requested */}
 
-      <Grid container spacing={4}>
-        {/* Professional Search */}
-        <Grid item xs={12} lg={7}>
-          <Slide direction="right" in timeout={700}>
+      <Grid 
+        container 
+        spacing={0}
+        sx={{ 
+          width: '100%',
+          display: { xs: 'block', md: 'grid' },
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gridTemplateAreas: { xs: `'bookings' 'search'`, md: `'bookings search'` },
+          gap: 2,
+        }}
+      >
+        {/* Bookings - now first/left (single instance) */}
+        <Grid item xs={12} md={6} sx={{ gridArea: 'bookings' }}>
+          <Slide direction="left" in timeout={700}>
             <Card
               sx={{
-                height: '100%',
+                height: 'auto',
+                width: '100%',
                 borderRadius: 'var(--radius-2xl)',
                 boxShadow: 'var(--shadow-xl)',
                 background: 'rgba(255, 255, 255, 0.9)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
-                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <Box sx={{ p: 3, borderBottom: '1px solid var(--gray-200)' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                  <Typography variant="h5" fontWeight={700} color="var(--primary-800)">
+                    Οι Κρατήσεις σας
+                  </Typography>
+                  <Badge badgeContent={bookings.length} color="primary">
+                    <Calendar size={24} color="var(--primary-600)" />
+                  </Badge>
+                  
+                </Box>
+              </Box>
+              
+              {/* Inline Month Calendar above bookings */}
+              <Box sx={{ px: 3, pt: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <IconButton onClick={() => { const d = new Date(selectedBookingDate || new Date()); d.setMonth(d.getMonth()-1); setSelectedBookingDate(d); }}><ChevronLeft /></IconButton>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    {new Date(selectedBookingDate || new Date()).toLocaleDateString('el-GR', { month: 'long', year: 'numeric' })}
+                  </Typography>
+                  <IconButton onClick={() => { const d = new Date(selectedBookingDate || new Date()); d.setMonth(d.getMonth()+1); setSelectedBookingDate(d); }}><ChevronRight /></IconButton>
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', mb: 1 }}>
+                  {['Κυρ','Δευ','Τρι','Τετ','Πεμ','Παρ','Σαβ'].map((d) => (
+                    <Typography key={d} variant="caption" sx={{ fontWeight: 700, color: 'var(--gray-600)' }}>{d}</Typography>
+                  ))}
+                  {(() => {
+                    const base = new Date(selectedBookingDate || new Date());
+                    const first = new Date(base.getFullYear(), base.getMonth(), 1);
+                    const last = new Date(base.getFullYear(), base.getMonth()+1, 0);
+                    const days = [];
+                    for (let i=0;i<first.getDay();i++) days.push(null);
+                    for (let d=1; d<=last.getDate(); d++) days.push(new Date(base.getFullYear(), base.getMonth(), d));
+                    const toYmd = (dt) => {
+                      const y=dt.getFullYear(); const m=String(dt.getMonth()+1).padStart(2,'0'); const da=String(dt.getDate()).padStart(2,'0');
+                      return `${y}-${m}-${da}`;
+                    };
+                    const todayYmd = toYmd(new Date());
+                    return days.map((day, idx) => {
+                      const selYmd = selectedBookingDate ? toYmd(new Date(selectedBookingDate)) : null;
+                      const isSelected = day && selYmd && toYmd(day) === selYmd;
+                      const hasBooking = day && (clientBookings||[]).some(b => {
+                        const s = String(b.start_time).includes('T') ? b.start_time : String(b.start_time).replace(' ','T');
+                        return toYmd(new Date(s)) === toYmd(day);
+                      });
+                      const isToday = day && toYmd(day) === todayYmd;
+                      return (
+                        <Box
+                          key={idx}
+                          onClick={() => day && setSelectedBookingDate(new Date(day))}
+                          sx={{ height: 40, m: 0.5, borderRadius: '8px', position:'relative', display:'flex', alignItems:'center', justifyContent:'center', cursor: day?'pointer':'default', bgcolor: isSelected ? 'var(--primary-100)' : 'transparent', border: isSelected ? '1px solid var(--primary-300)' : '1px solid transparent', opacity: day?1:0 }}
+                        >
+                          <Typography variant="body2" color={isSelected ? 'var(--primary-800)' : (isToday ? 'var(--primary-600)' : 'text.primary')}>
+                            {day ? day.getDate() : ''}
+                          </Typography>
+                          {hasBooking && <Box sx={{ position:'absolute', left:'50%', transform:'translateX(-50%)', bottom:4, width:6, height:6, borderRadius:'50%', bgcolor:'var(--primary-500)' }} />}
+                        </Box>
+                      );
+                    });
+                  })()}
+                </Box>
+              </Box>
+
+              <Box sx={{ p: 3 }}>
+                {(() => {
+                  const toYmd = (dt) => {
+                    const y = dt.getFullYear();
+                    const m = String(dt.getMonth() + 1).padStart(2, '0');
+                    const d = String(dt.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}`;
+                  };
+                  const selectedYmd = selectedBookingDate ? toYmd(new Date(selectedBookingDate)) : null;
+                  const bookingsToShow = selectedYmd
+                    ? (clientBookings || []).filter((b) => {
+                        const s = String(b.start_time).includes('T') ? b.start_time : String(b.start_time).replace(' ', 'T');
+                        return toYmd(new Date(s)) === selectedYmd;
+                      })
+                    : (clientBookings || []);
+
+                  if (bookingsToShow.length === 0) {
+                    return (
+                      <Box sx={{ textAlign: 'center', py: 6 }}>
+                        <Box
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: '50%',
+                            bgcolor: 'var(--gray-100)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            mx: 'auto',
+                            mb: 2,
+                          }}
+                        >
+                          <Calendar size={32} color="var(--gray-400)" />
+                        </Box>
+                        <Typography variant="h6" color="text.secondary" gutterBottom>
+                          Δεν υπάρχουν κρατήσεις για την επιλεγμένη ημερομηνία
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Επιλέξτε άλλη ημέρα από το ημερολόγιο
+                        </Typography>
+                      </Box>
+                    );
+                  }
+
+                  return (
+                    <Stack spacing={2}>
+                      {bookingsToShow.map((booking, index) => (
+                        <Fade in timeout={300 + index * 100} key={booking.id}>
+                          <Card
+                            elevation={0}
+                            sx={{
+                              border: '1px solid var(--gray-200)',
+                              borderRadius: 'var(--radius-xl)',
+                              overflow: 'hidden',
+                              transition: 'all var(--transition-normal)',
+                              '&:hover': {
+                                borderColor: 'var(--primary-300)',
+                                boxShadow: 'var(--shadow-md)',
+                              },
+                            }}
+                          >
+                            <CardContent sx={{ p: 3 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                                <Box>
+                                  <Typography variant="subtitle1" fontWeight={600} color="var(--primary-800)">
+                                    {booking.professional_name || 'Επαγγελματίας'}
+                                  </Typography>
+                                  <Typography variant="body2" color="var(--primary-600)" fontWeight={500}>
+                                    {booking.service_name || 'Υπηρεσία'}
+                                  </Typography>
+                                </Box>
+                                <Chip
+                                  label={getStatusText(booking.status)}
+                                  color={getStatusColor(booking.status)}
+                                  size="small"
+                                  sx={{ fontWeight: 500 }}
+                                />
+                              </Box>
+                              
+                              <Stack spacing={1.5}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                  <Clock size={16} color="var(--gray-500)" />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {new Date(booking.start_time).toLocaleString('el-GR')}
+                                  </Typography>
+                                </Box>
+                              </Stack>
+                              
+                              <Divider sx={{ my: 2 }} />
+                              
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" color="text.secondary">
+                                  Από: {new Date(booking.start_time).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}
+                                  {' '}έως{' '}
+                                  {new Date(booking.end_time).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}
+                                </Typography>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  disabled={booking.status === 'cancelled'}
+                                  onClick={() => { setAppointmentToCancel(booking); setConfirmCancelOpen(true); }}
+                                >
+                                  Ακύρωση
+                                </Button>
+                              </Box>
+                            </CardContent>
+                          </Card>
+                        </Fade>
+                      ))}
+                    </Stack>
+                  );
+                })()}
+              </Box>
+            </Card>
+          </Slide>
+        </Grid>
+
+        {/* Professional Search - now second/right */}
+        <Grid item xs={12} md={6} sx={{ gridArea: 'search' }}>
+          <Slide direction="right" in timeout={700}>
+            <Card
+              sx={{
+                height: 'auto',
+                width: '100%',
+                borderRadius: 'var(--radius-2xl)',
+                boxShadow: 'var(--shadow-xl)',
+                background: 'rgba(255, 255, 255, 0.9)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               <Box sx={{ p: 3, borderBottom: '1px solid var(--gray-200)' }}>
@@ -267,6 +495,15 @@ const ClientDashboard = () => {
                     <Filter size={20} />
                   </IconButton>
                 </Box>
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel id="cat-filter">Κατηγορία</InputLabel>
+                  <Select labelId="cat-filter" label="Κατηγορία" value={selectedCategoryId} onChange={(e)=>setSelectedCategoryId(e.target.value)}>
+                    <MenuItem value="">Όλες</MenuItem>
+                    {(categories || []).map(c => (
+                      <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
                 
                 <TextField
                   fullWidth
@@ -296,7 +533,7 @@ const ClientDashboard = () => {
                 />
               </Box>
               
-              <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3, maxHeight: '600px' }}>
+              <Box sx={{ p: 3 }}>
                 {loading ? (
                   <Stack spacing={2}>
                     {Array.from({ length: 4 }).map((_, i) => (
@@ -468,128 +705,7 @@ const ClientDashboard = () => {
           </Slide>
         </Grid>
 
-        {/* Bookings List */}
-        <Grid item xs={12} lg={5}>
-          <Slide direction="left" in timeout={700}>
-            <Card
-              sx={{
-                height: '100%',
-                borderRadius: 'var(--radius-2xl)',
-                boxShadow: 'var(--shadow-xl)',
-                background: 'rgba(255, 255, 255, 0.9)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                overflow: 'hidden',
-              }}
-            >
-              <Box sx={{ p: 3, borderBottom: '1px solid var(--gray-200)' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h5" fontWeight={700} color="var(--primary-800)">
-                    Οι Κρατήσεις σας
-                  </Typography>
-                  <Badge badgeContent={bookings.length} color="primary">
-                    <Calendar size={24} color="var(--primary-600)" />
-                  </Badge>
-                </Box>
-              </Box>
-              
-              <Box sx={{ flexGrow: 1, overflow: 'auto', p: 3, maxHeight: '600px' }}>
-                {(clientBookings || []).length === 0 ? (
-                  <Box sx={{ textAlign: 'center', py: 6 }}>
-                    <Box
-                      sx={{
-                        width: 80,
-                        height: 80,
-                        borderRadius: '50%',
-                        bgcolor: 'var(--gray-100)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mx: 'auto',
-                        mb: 2,
-                      }}
-                    >
-                      <Calendar size={32} color="var(--gray-400)" />
-                    </Box>
-                    <Typography variant="h6" color="text.secondary" gutterBottom>
-                      Δεν έχετε κρατήσεις
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Ξεκινήστε κλείνοντας το πρώτο σας ραντεβού
-                    </Typography>
-                  </Box>
-                ) : (
-                  <Stack spacing={2}>
-                    {clientBookings.map((booking, index) => (
-                      <Fade in timeout={300 + index * 100} key={booking.id}>
-                        <Card
-                          elevation={0}
-                          sx={{
-                            border: '1px solid var(--gray-200)',
-                            borderRadius: 'var(--radius-xl)',
-                            overflow: 'hidden',
-                            transition: 'all var(--transition-normal)',
-                            '&:hover': {
-                              borderColor: 'var(--primary-300)',
-                              boxShadow: 'var(--shadow-md)',
-                            },
-                          }}
-                        >
-                          <CardContent sx={{ p: 3 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                              <Box>
-                                <Typography variant="subtitle1" fontWeight={600} color="var(--primary-800)">
-                                  {booking.professional_name || 'Επαγγελματίας'}
-                                </Typography>
-                                <Typography variant="body2" color="var(--primary-600)" fontWeight={500}>
-                                  {booking.service_name || 'Υπηρεσία'}
-                                </Typography>
-                              </Box>
-                              <Chip
-                                label={getStatusText(booking.status)}
-                                color={getStatusColor(booking.status)}
-                                size="small"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            </Box>
-                            
-                            <Stack spacing={1.5}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                <Clock size={16} color="var(--gray-500)" />
-                                <Typography variant="body2" color="text.secondary">
-                                  {new Date(booking.start_time).toLocaleString('el-GR')}
-                                </Typography>
-                              </Box>
-                            </Stack>
-                            
-                            <Divider sx={{ my: 2 }} />
-                            
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Από: {new Date(booking.start_time).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}
-                                {' '}έως{' '}
-                                {new Date(booking.end_time).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}
-                              </Typography>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                disabled={booking.status === 'cancelled'}
-                                onClick={() => { setAppointmentToCancel(booking); setConfirmCancelOpen(true); }}
-                              >
-                                Ακύρωση
-                              </Button>
-                            </Box>
-                          </CardContent>
-                        </Card>
-                      </Fade>
-                    ))}
-                  </Stack>
-                )}
-              </Box>
-            </Card>
-          </Slide>
-        </Grid>
+        
       </Grid>
     </Box>
     <ClientBookingModal
