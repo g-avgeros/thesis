@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # DB config
 app.config['SQLALCHEMY_DATABASE_URI'] = (
@@ -24,8 +24,25 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
-with app.app_context():
-    db.create_all()
+# Wait for database to be ready and create tables
+def create_tables():
+    max_retries = 10
+    for attempt in range(max_retries):
+        try:
+            with app.app_context():
+                db.create_all()
+            print("Database tables created successfully!")
+            break
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"Database connection attempt {attempt + 1} failed, retrying in 5 seconds...")
+                import time
+                time.sleep(5)
+            else:
+                print(f"Failed to connect to database after {max_retries} attempts: {e}")
+                raise
+
+create_tables()
 
 # Routes
 app.register_blueprint(auth_bp)
@@ -40,4 +57,4 @@ def index():
     return "Freelancing Appointments API ✅"
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

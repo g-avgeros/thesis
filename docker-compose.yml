@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: freelancing_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: freelancing_db
+      MYSQL_USER: app_user
+      MYSQL_PASSWORD: app_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - freelancing_network
+
+  # Flask Backend
+  backend:
+    build: ./backend
+    container_name: freelancing_backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: app_user
+      DB_PASSWORD: app_password
+      DB_NAME: freelancing_db
+      FLASK_ENV: development
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    networks:
+      - freelancing_network
+    volumes:
+      - ./backend:/app
+
+  # React Frontend
+  frontend:
+    build: ./frontend
+    container_name: freelancing_frontend
+    restart: unless-stopped
+    environment:
+      - REACT_APP_API_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - freelancing_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  freelancing_network:
+    driver: bridge

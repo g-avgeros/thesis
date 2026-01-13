@@ -56,7 +56,17 @@ const ProfessionalSignUp = () => {
   };
 
   React.useEffect(() => {
-    getCategories().then(res => setCategories(res.data || [])).catch(() => setCategories([]));
+    console.log('Loading categories...', process.env.REACT_APP_API_URL);
+    getCategories()
+      .then(res => {
+        console.log('Categories loaded:', res.data);
+        setCategories(res.data || []);
+      })
+      .catch(err => {
+        console.error('Error loading categories:', err);
+        console.error('Error details:', err.response?.data || err.message);
+        setCategories([]);
+      });
   }, []);
 
   const handleSignUpSubmit = async (e) => {
