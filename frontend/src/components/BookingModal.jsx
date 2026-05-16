@@ -20,6 +20,7 @@ import {
 import { DatePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
 import elLocale from 'date-fns/locale/el';
+import { startOfDay } from 'date-fns';
 import {
   X,
   Calendar,
@@ -47,6 +48,15 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
     return new Date(y, (m || 1) - 1, d || 1);
   };
 
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+  const isDayAvailableInSchedule = (date) => {
+    const dayName = dayNames[startOfDay(date).getDay()];
+    return schedules.some(
+      (s) => String(s.day_of_week).toLowerCase() === dayName && s.is_available === true
+    );
+  };
+
   const [formData, setFormData] = useState({
     service: '',
     client: '',
@@ -68,9 +78,10 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
   // Generate slots from schedules and exclude booked appointments
   const generateSlotsFromSchedule = useCallback((dateStr) => {
     const date = parseYMDToLocalDate(dateStr);
-    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
     const day = dayNames[date.getDay()];
-    const entry = schedules.find(s => s.day_of_week === day && s.is_available);
+    const entry = schedules.find(
+      (s) => String(s.day_of_week).toLowerCase() === day && s.is_available === true
+    );
     if (!entry) return [];
 
     const toMinutes = (t) => {
@@ -125,9 +136,11 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
     }
   }, [open]);
 
-  // Prepare schedules/appointments loader
+  // Logged-in professional's schedule (never a hardcoded/other id)
   const professionalIdFromContext = useCallback(() => {
-    return professionalId || Number(localStorage.getItem('user_id')) || undefined;
+    const stored = Number(localStorage.getItem('user_id'));
+    if (stored) return stored;
+    return professionalId || undefined;
   }, [professionalId]);
 
   const fetchSchedulesAndAppointments = useCallback(async () => {
@@ -461,21 +474,13 @@ const BookingModal = ({ open, onClose, onConfirm, professionalId }) => {
                 label="Ημερομηνία Ραντεβού"
                 value={formData.date ? parseYMDToLocalDate(formData.date) : null}
                 onChange={(newValue) => {
-                  const d = newValue ? new Date(newValue) : null;
-                  handleInputChange('date', d ? dateToYMDLocal(d) : '');
+                  handleInputChange('date', newValue ? dateToYMDLocal(newValue) : '');
                 }}
                 shouldDisableDate={(day) => {
-                  const today = new Date();
-                  today.setHours(0,0,0,0);
-                  const current = new Date(day);
-                  current.setHours(0,0,0,0);
-                  // disable past dates
+                  const current = startOfDay(day);
+                  const today = startOfDay(new Date());
                   if (current < today) return true;
-                  // disable weekdays without available schedule
-                  const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-                  const dayName = dayNames[current.getDay()];
-                  const available = schedules.some(s => s.day_of_week === dayName && s.is_available);
-                  return !available;
+                  return !isDayAvailableInSchedule(day);
                 }}
                 slotProps={{ textField: { fullWidth: true } }}
               />

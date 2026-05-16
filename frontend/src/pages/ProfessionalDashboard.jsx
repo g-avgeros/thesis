@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Typography, IconButton, Paper, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { ChevronLeft, ChevronRight, CalendarMonth, Add } from '@mui/icons-material';
 import Layout from '../components/Layout';
-import { createAppointment, getAppointments, getSchedules, getClients, getServices, cancelAppointment } from '../services/authService';
+import { createAppointment, getAppointments, getClients, getServices, cancelAppointment } from '../services/authService';
 import BookingModal from '../components/BookingModal';
 
 const ProfessionalDashboard = () => {
@@ -13,7 +13,6 @@ const ProfessionalDashboard = () => {
   const [newEvent, setNewEvent] = useState({ service: '', client: '', date: '', timeslot: '' });
   void newEvent;
   const [appointments, setAppointments] = useState([]);
-  const [schedules, setSchedules] = useState([]);
   const [clients, setClients] = useState([]);
   const [services, setServices] = useState([]);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
@@ -43,15 +42,12 @@ const ProfessionalDashboard = () => {
 
   useEffect(() => {
     const load = async () => {
-      const pid = Number(localStorage.getItem('user_id')) || 1;
-      const [a, s, c, sv] = await Promise.all([
+      const [a, c, sv] = await Promise.all([
         getAppointments(),
-        getSchedules(pid),
         getClients(),
         getServices(),
       ]);
       setAppointments(a.data || []);
-      setSchedules(s.data?.schedules || []);
       setClients(c.data || []);
       setServices(Array.isArray(sv.data) ? sv.data : (sv.data?.services || []));
     };
@@ -168,27 +164,29 @@ const ProfessionalDashboard = () => {
             ))}
 
             {days.map((day, idx) => {
-              const today = new Date();
-              today.setHours(0,0,0,0);
-              const isPast = day && new Date(day.setHours(0,0,0,0)) < today;
-              const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-              const available = day && schedules.some(s => s.day_of_week === dayNames[day.getDay()] && s.is_available);
-              const disabled = !day || isPast || !available;
+              if (!day) {
+                return (
+                  <Box key={idx} height={60} border={1} borderColor="grey.200" />
+                );
+              }
+              const cellDate = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+              const isToday = cellDate.toDateString() === new Date().toDateString();
+              const isSelected = selectedDate && cellDate.toDateString() === selectedDate.toDateString();
               return (
               <Box
                 key={idx}
                 height={60}
                 border={1}
-                borderColor="grey.200"
+                borderColor={isSelected ? 'primary.main' : 'grey.200'}
                 display="flex"
                 alignItems="center"
                 justifyContent="center"
-                bgcolor={day && day.toDateString() === new Date().toDateString() ? 'primary.light' : 'transparent'}
-                sx={{ cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.4 : 1 }}
-                onClick={() => !disabled && setSelectedDate(new Date(day))}
+                bgcolor={isToday ? 'primary.light' : isSelected ? 'action.selected' : 'transparent'}
+                sx={{ cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                onClick={() => setSelectedDate(cellDate)}
               >
-                <Typography color={day ? 'text.primary' : 'transparent'}>
-                  {day ? day.getDate() : ''}
+                <Typography fontWeight={isSelected ? 700 : 400}>
+                  {day.getDate()}
                 </Typography>
               </Box>
             );})}
@@ -248,7 +246,6 @@ const ProfessionalDashboard = () => {
           open={openDialog}
           onClose={handleBookingClose}
           onConfirm={handleBookingConfirm}
-          professionalId={1} // You can get this from user context or props
         />
 
         {/* Cancel Confirm Dialog */}
