@@ -1,5 +1,6 @@
 import os, datetime, jwt, bcrypt, re
 from flask import Blueprint, request, jsonify, current_app as app
+from sqlalchemy import func
 from models.models import db, Professional, Client, Category
 from functools import wraps
 
@@ -11,12 +12,28 @@ def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return re.match(pattern, email) is not None
 
+def _user_type(user):
+    return "professional" if isinstance(user, Professional) else "client"
+
+
 def generate_token(user):
     payload = {
         "id": user.id,
-        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8)
+        "role": _user_type(user),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8),
     }
-    return jwt.encode(payload, SECRET, algorithm="HS256")
+    token = jwt.encode(payload, SECRET, algorithm="HS256")
+    return token if isinstance(token, str) else token.decode("utf-8")
+
+
+def _verify_password(user, password):
+    stored = getattr(user, "password_hash", None) or ""
+    if not stored or not stored.startswith("$2"):
+        return False
+    try:
+        return bcrypt.checkpw(password.encode(), stored.encode())
+    except (ValueError, TypeError):
+        return False
 
 def token_required(f):
     @wraps(f)
@@ -27,10 +44,15 @@ def token_required(f):
         token = auth.split()[1]
         try:
             payload = jwt.decode(token, SECRET, algorithms=["HS256"])
-            # Try to find user in both tables
-            user = Professional.query.get(payload["id"])
-            if not user:
-                user = Client.query.get(payload["id"])
+            role = payload.get("role")
+            uid = payload["id"]
+            if role == "client":
+                user = Client.query.get(uid)
+            elif role == "professional":
+                user = Professional.query.get(uid)
+            else:
+                # Legacy tokens without role: prefer professional (old behavior)
+                user = Professional.query.get(uid) or Client.query.get(uid)
             if not user:
                 raise RuntimeError()
         except Exception:
@@ -107,27 +129,27 @@ def register_client():
 @auth_bp.route("/login", methods=["POST"])
 def login():
     data = request.get_json() or {}
-    email = data.get("email")
+    email = (data.get("email") or "").strip().lower()
     password = data.get("password", "")
-    
-    if not validate_email(email):
+
+    if not email or not validate_email(email):
         return jsonify({"error": "invalid email format"}), 400
-    
-    # Try to find user in both professionals and clients tables
-    user = Professional.query.filter_by(email=email).first()
+
+    # Case-insensitive email lookup
+    user = Professional.query.filter(func.lower(Professional.email) == email).first()
     user_type = "professional"
-    
+
     if not user:
-        user = Client.query.filter_by(email=email).first()
+        user = Client.query.filter(func.lower(Client.email) == email).first()
         user_type = "client"
-    
-    if not user or not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+
+    if not user or not _verify_password(user, password):
         return jsonify({"error": "invalid credentials"}), 401
-    
+
     return jsonify({
-        "token": generate_token(user), 
+        "token": generate_token(user),
         "id": user.id,
-        "user_type": user_type
+        "user_type": user_type,
     })
 
 @auth_bp.route("/me", methods=["GET"])

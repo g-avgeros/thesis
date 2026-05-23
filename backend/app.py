@@ -7,6 +7,13 @@ from routes.appointments import appointment_bp
 from routes.clients import client_bp
 from routes.auth import auth_bp
 from routes.schedules import schedules_bp
+try:
+    from routes.agent import agent_bp
+    _agent_available = True
+except ImportError as e:
+    agent_bp = None
+    _agent_available = False
+    print(f"Warning: AI agent disabled ({e}). Run: pip install -r requirements.txt")
 import os
 from dotenv import load_dotenv
 
@@ -51,6 +58,8 @@ app.register_blueprint(service_bp)
 app.register_blueprint(appointment_bp)
 app.register_blueprint(client_bp)
 app.register_blueprint(schedules_bp)
+if _agent_available and agent_bp:
+    app.register_blueprint(agent_bp)
 
 @app.route('/')
 def index():

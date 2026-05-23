@@ -9,6 +9,7 @@ import Services from './pages/Services';
 import Clients from './pages/Clients';
 import ClientDashboard from './pages/ClientDashboard';
 import Schedule from './pages/Schedule';
+import Statistics from './pages/Statistics';
 
 function App() {
   const ProtectedRoute = ({ children }) => {
@@ -27,6 +28,7 @@ function App() {
         <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
         <Route path="/services" element={<ProtectedRoute><Services /></ProtectedRoute>} />
         <Route path="/clients" element={<ProtectedRoute><Clients /></ProtectedRoute>} />
+        <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
         <Route
             path="/client-dashboard"
             element={<ProtectedRoute><ClientDashboard /></ProtectedRoute>}

@@ -40,6 +40,7 @@ import { useNavigate } from 'react-router-dom';
 import { getProfessionals, createAppointmentAsClient, getAppointments, cancelAppointment, getCategories } from '../services/authService';
 import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import ClientBookingModal from '../components/ClientBookingModal';
+import AgentChat from '../components/AgentChat';
 import axios from 'axios';
 
 const ClientDashboard = () => {
@@ -763,6 +764,8 @@ const ClientDashboard = () => {
         }}>Ναι, ακύρωση</Button>
       </DialogActions>
     </Dialog>
+
+    <AgentChat agentType="client" />
     </>
   );
 };

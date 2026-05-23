@@ -11,6 +11,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import Sidebar from './Sidebar';
+import AgentChat from './AgentChat';
 import { useNavigate } from 'react-router-dom';
 
 const Layout = ({ children }) => {
@@ -115,6 +116,7 @@ const Layout = ({ children }) => {
         {children}
       </Box>
 
+      <AgentChat agentType="professional" />
     </Box>
   );
 };

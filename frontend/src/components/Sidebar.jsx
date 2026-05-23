@@ -14,6 +14,7 @@ import {
   Users, 
   Home,
   Calendar,
+  BarChart3,
 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -46,6 +47,12 @@ const Sidebar = () => {
       text: 'Πελάτες', 
       icon: <Users size={20} />, 
       path: '/clients',
+      badge: null
+    },
+    { 
+      text: 'Στατιστικά', 
+      icon: <BarChart3 size={20} />, 
+      path: '/statistics',
       badge: null
     },
   ];

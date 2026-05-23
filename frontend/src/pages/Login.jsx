@@ -67,7 +67,15 @@ const Login = () => {
       }
     } catch (err) {
       console.error(err.response?.data || err.message);
-      const errorMessage = err.response?.data?.error || 'Λάθος email ή κωδικός!';
+      let errorMessage = 'Λάθος email ή κωδικός!';
+      if (!err.response) {
+        errorMessage =
+          'Δεν συνδέεται ο server. Βεβαιωθείτε ότι τρέχει το backend (port 5000).';
+      } else if (err.response.data?.error === 'invalid credentials') {
+        errorMessage = 'Λάθος email ή κωδικός!';
+      } else if (err.response.data?.error) {
+        errorMessage = err.response.data.error;
+      }
       alert(errorMessage);
     }
   };

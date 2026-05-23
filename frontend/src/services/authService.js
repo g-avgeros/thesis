@@ -44,3 +44,8 @@ export const getAppointments = () => api.get('/appointments');
 export const createAppointment = payload => api.post('/appointments', payload);
 export const createAppointmentAsClient = payload => api.post('/appointments/client', payload);
 export const cancelAppointment = id => api.post(`/appointments/${id}/cancel`);
+
+// AI Agents
+export const getAgentStatus = () => api.get('/agent/status');
+export const agentChat = (payload) =>
+  api.post('/agent/chat', payload, { timeout: 45000 });
